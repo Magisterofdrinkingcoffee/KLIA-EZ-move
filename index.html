@@ -1,0 +1,696 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>KLIA Easy Move</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@500;700;800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap">
+<style>
+/* Layout: airport wayfinding. A route finder up top, then "sign" tiles (level + door) that people can match to the real signs in the terminal. */
+:root {
+  --bg: #f3f2f8;
+  --surface: #ffffff;
+  --ink: #1b1442;
+  --muted: #5d5878;
+  --line: #dcd9ea;
+  --accent: #f4802f;      /* team orange */
+  --accent-ink: #1b1442;
+  --sign: #1b1442;        /* wayfinding sign panel */
+  --sign-ink: #ffd23f;    /* KLIA-style yellow sign text */
+  --ok: #1f8a5b;
+  --warn: #b4441b;
+  --soft: #fff1e6;
+  --font-display: "Lexend", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #110d26; --surface: #1c1738; --ink: #f1eefc; --muted: #b2abd0; --line: #332c58;
+    --accent: #ff9548; --accent-ink: #1b1442; --sign: #090614; --sign-ink: #ffd23f;
+    --ok: #5ccf98; --warn: #ff8a5c; --soft: #2b1f2a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #110d26; --surface: #1c1738; --ink: #f1eefc; --muted: #b2abd0; --line: #332c58;
+  --accent: #ff9548; --accent-ink: #1b1442; --sign: #090614; --sign-ink: #ffd23f;
+  --ok: #5ccf98; --warn: #ff8a5c; --soft: #2b1f2a; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 17px; line-height: 1.55;
+}
+.wrap { max-width: 1080px; margin: 0 auto; padding-inline: 16px; }
+h1, h2, h3 { font-family: var(--font-display); line-height: 1.15; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2rem, 6vw, 3.4rem); font-weight: 800; letter-spacing: -0.02em; }
+h2 { font-size: clamp(1.5rem, 3.5vw, 2.1rem); font-weight: 700; }
+h3 { font-size: 1.15rem; font-weight: 700; }
+p { margin: 0; }
+a { color: inherit; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.eyebrow { font-family: var(--font-display); font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: var(--accent); }
+.muted { color: var(--muted); }
+
+/* Top bar */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10; background: var(--sign); color: #fff; }
+.top .wrap { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 10px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; font-family: var(--font-display); font-weight: 800; color: var(--sign-ink); text-decoration: none; }
+.brand .badge { background: var(--accent); color: var(--accent-ink); border-radius: 8px; padding: 2px 8px; font-size: .8rem; }
+.top nav { display: flex; gap: 4px; flex-wrap: wrap; }
+.top nav a { color: #fff; text-decoration: none; font-size: .92rem; padding: 6px 10px; border-radius: 8px; }
+.top nav a:hover { background: rgba(255,255,255,.12); }
+
+/* Hero */
+.hero { padding-block: 40px 28px; display: grid; gap: 28px; grid-template-columns: 1.1fr 1fr; align-items: start; }
+.hero > * { min-width: 0; }
+.hero .lede { font-size: 1.15rem; color: var(--muted); margin-top: 14px; max-width: 34rem; }
+.promise { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.promise span { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: .9rem; }
+
+/* Sign tile: the signature element, matches real KLIA signs */
+.sign { background: var(--sign); color: #fff; border-radius: 10px; padding: 12px 14px; display: flex; gap: 12px; align-items: center; }
+.sign .lv { font-family: var(--font-display); font-weight: 800; background: var(--sign-ink); color: #1b1442; border-radius: 6px; min-width: 2.6em; text-align: center; padding: 4px 6px; font-size: 1.1rem; }
+.sign .txt { font-family: var(--font-display); font-weight: 700; color: var(--sign-ink); line-height: 1.2; }
+.sign .txt small { display: block; color: #fff; font-weight: 500; font-size: .82rem; opacity: .85; }
+
+/* Route finder */
+.finder { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; box-shadow: 0 10px 30px -18px rgba(27,20,66,.45); }
+.finder h2 { font-size: 1.3rem; }
+.finder fieldset { border: 0; padding: 0; margin: 16px 0 0; }
+.finder legend { font-weight: 700; margin-bottom: 8px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { position: relative; }
+.chip input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
+.chip label { display: inline-block; border: 2px solid var(--line); border-radius: 999px; padding: 7px 14px; cursor: pointer; font-size: .95rem; background: var(--bg); }
+.chip input:checked + label { border-color: var(--accent); background: var(--soft); font-weight: 700; }
+.chip input:focus-visible + label { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.result { margin-top: 18px; border-top: 1px dashed var(--line); padding-top: 16px; display: grid; gap: 12px; }
+.pick { display: grid; gap: 8px; }
+.pick-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.pill { font-size: .78rem; font-weight: 700; border-radius: 999px; padding: 3px 10px; background: var(--ok); color: #fff; }
+.pill.alt { background: var(--line); color: var(--ink); }
+.steps { margin: 0; padding-left: 1.3em; display: grid; gap: 4px; }
+.why { font-size: .92rem; color: var(--muted); }
+
+section.block { padding-block: 44px; scroll-margin-top: 56px; }
+.section-head { display: grid; gap: 8px; margin-bottom: 22px; max-width: 44rem; }
+
+/* Grab guide */
+.grab { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; counter-reset: s; }
+.grab li { list-style: none; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: grid; gap: 10px; align-content: start; }
+.grab li::before { counter-increment: s; content: "Step " counter(s); font-family: var(--font-display); font-weight: 700; font-size: .8rem; color: var(--accent); text-transform: uppercase; letter-spacing: .1em; }
+.grab ol { margin: 0; padding: 0; }
+.pin { margin-top: 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; background: var(--soft); border-radius: var(--radius); padding: 14px 16px; }
+.pin code { font-family: var(--font-display); font-weight: 700; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+button { font: inherit; cursor: pointer; }
+.btn { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 10px; padding: 9px 16px; font-weight: 700; font-family: var(--font-display); }
+.btn.ghost { background: transparent; color: var(--ink); border: 2px solid var(--line); }
+
+/* Transport table-ish cards */
+.modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.mode { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; display: grid; gap: 12px; align-content: start; }
+.mode > * { min-width: 0; }
+.facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 0; font-size: .95rem; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; font-variant-numeric: tabular-nums; font-weight: 700; }
+.fam { display: flex; gap: 6px; flex-wrap: wrap; }
+.tag { font-size: .8rem; border-radius: 6px; padding: 2px 8px; border: 1px solid var(--line); }
+.tag.good { border-color: var(--ok); color: var(--ok); }
+.tag.mind { border-color: var(--warn); color: var(--warn); }
+
+/* Family & access */
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.two > * { min-width: 0; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; display: grid; gap: 12px; align-content: start; }
+.list { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
+.list li { display: grid; gap: 2px; padding-left: 14px; border-left: 3px solid var(--line); }
+.list b { font-family: var(--font-display); font-weight: 700; }
+
+/* Safety */
+.safety { background: var(--sign); color: #fff; border-radius: 20px; padding: 28px 22px; display: grid; gap: 20px; }
+.safety h2 { color: var(--sign-ink); }
+.rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.rule { border: 1px solid rgba(255,255,255,.18); border-radius: 12px; padding: 14px; display: grid; gap: 6px; align-content: start; }
+.rule h3 { color: var(--sign-ink); font-size: 1.02rem; }
+.rule p { color: #e8e4fb; font-size: .95rem; }
+.sos { display: flex; flex-wrap: wrap; gap: 10px; }
+.sos div { background: rgba(255,255,255,.08); border-radius: 10px; padding: 10px 14px; }
+.sos strong { display: block; font-family: var(--font-display); font-size: 1.4rem; color: var(--sign-ink); font-variant-numeric: tabular-nums; user-select: all; }
+
+/* Driver card + checklist */
+.driver { background: var(--surface); border: 2px dashed var(--accent); border-radius: var(--radius); padding: 18px; display: grid; gap: 12px; }
+.driver select, .driver input { font: inherit; padding: 8px 10px; border-radius: 8px; border: 2px solid var(--line); background: var(--bg); color: var(--ink); width: 100%; }
+.driver .show { font-family: var(--font-display); font-size: clamp(1.4rem, 4vw, 2rem); font-weight: 800; line-height: 1.2; background: var(--sign); color: var(--sign-ink); border-radius: 12px; padding: 18px; }
+.driver .show small { display: block; color: #fff; font-size: .95rem; font-weight: 500; margin-top: 6px; }
+.check { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.check label { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.check input { width: 22px; height: 22px; accent-color: var(--accent); flex: none; margin-top: 2px; }
+.progress { height: 10px; background: var(--line); border-radius: 999px; overflow: hidden; }
+.progress i { display: block; height: 100%; width: 0; background: var(--ok); transition: width .3s; }
+
+footer { padding-block: 32px 48px; color: var(--muted); font-size: .9rem; border-top: 1px solid var(--line); margin-top: 20px; display: grid; gap: 6px; }
+
+@media (max-width: 860px) {
+  .hero, .two { grid-template-columns: 1fr; }
+  .grab { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 520px) {
+  .grab { grid-template-columns: 1fr; }
+  .top nav { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+html { scroll-behavior: smooth; }
+/* Terminal map */
+.map-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; display: grid; gap: 14px; }
+.map-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.map-scroll svg { display: block; width: 100%; min-width: 640px; height: auto; }
+.m-floor { fill: var(--bg); stroke: var(--line); stroke-width: 2; }
+.m-tag { fill: var(--sign); }
+.m-tag-t { fill: var(--sign-ink); font-family: var(--font-display); font-weight: 800; font-size: 15px; }
+.m-tag-s { fill: var(--muted); font-family: var(--font-body); font-size: 12px; }
+.m-lift { fill: var(--line); }
+.m-lift-t { fill: var(--ink); font-family: var(--font-display); font-weight: 700; font-size: 11px; }
+.m-dot { fill: var(--surface); stroke: var(--muted); stroke-width: 2.5; }
+.m-lbl { fill: var(--ink); font-family: var(--font-body); font-size: 12.5px; font-weight: 700; }
+.m-pt.on .m-dot { fill: var(--accent); stroke: var(--accent); }
+.m-pt.on .m-lbl { fill: var(--accent); }
+.m-here { fill: var(--ok); }
+.m-here-t { fill: var(--ok); font-family: var(--font-display); font-weight: 700; font-size: 12px; }
+.m-route { fill: none; stroke: var(--accent); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 10 8; animation: march 1s linear infinite; }
+@keyframes march { to { stroke-dashoffset: -18; } }
+.map-picks { display: flex; flex-wrap: wrap; gap: 8px; }
+.map-picks button { border: 2px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 999px; padding: 7px 14px; font-size: .95rem; }
+.map-picks button[aria-pressed="true"] { border-color: var(--accent); background: var(--soft); font-weight: 700; }
+.map-foot { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: center; font-size: .92rem; }
+.linkish { background: none; border: 0; padding: 0; color: var(--accent); font-weight: 700; text-decoration: underline; font-size: .92rem; justify-self: start; }
+@media (prefers-reduced-motion: reduce) { .m-route { animation: none; } }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#start"><span class="badge">KLIA T1</span> Easy Move</a>
+    <nav aria-label="Sections">
+      <a href="#grab">Grab pickup</a>
+      <a href="#map">Map</a>
+      <a href="#options">All rides</a>
+      <a href="#family">Family &amp; access</a>
+      <a href="#safety">Stay safe</a>
+      <a href="#driver">Driver card</a>
+    </nav>
+  </div>
+</header>
+
+<main id="start">
+  <div class="wrap hero">
+    <div>
+      <p class="eyebrow">Kuala Lumpur International Airport · Terminal 1</p>
+      <h1 style="margin-top:10px">Just landed? Here's exactly where to go.</h1>
+      <p class="lede">Plain directions to your Grab, train, taxi or bus, with the level and door number written the way the airport signs show them. Made for families, older travellers and anyone first time at KLIA.</p>
+      <div class="promise" aria-label="What this page helps with">
+        <span>Level and door for every ride</span>
+        <span>Stroller and wheelchair routes</span>
+        <span>Official options only</span>
+      </div>
+      <div style="display:grid; gap:8px; margin-top:22px; max-width:420px">
+        <div class="sign"><span class="lv">L3</span><span class="txt">Arrival Hall<small>You come out here after customs and baggage</small></span></div>
+        <div class="sign"><span class="lv">L1</span><span class="txt">E-hailing · Bus · Meter taxi<small>Take the lift or escalator down two floors</small></span></div>
+      </div>
+    </div>
+
+    <form class="finder" id="finder" aria-labelledby="finder-title">
+      <p class="eyebrow">Route finder</p>
+      <h2 id="finder-title" style="margin-top:6px">How should we get out of here?</h2>
+
+      <fieldset>
+        <legend>Where are you going?</legend>
+        <div class="chips">
+          <span class="chip"><input type="radio" name="dest" id="d-city" value="city" checked><label for="d-city">KL city / KL Sentral</label></span>
+          <span class="chip"><input type="radio" name="dest" id="d-hotel" value="hotel"><label for="d-hotel">A hotel or house address</label></span>
+          <span class="chip"><input type="radio" name="dest" id="d-t2" value="t2"><label for="d-t2">Terminal 2 (klia2)</label></span>
+          <span class="chip"><input type="radio" name="dest" id="d-put" value="putrajaya"><label for="d-put">Putrajaya / Cyberjaya</label></span>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Who's travelling? <span class="muted" style="font-weight:400">(pick all that fit)</span></legend>
+        <div class="chips">
+          <span class="chip"><input type="checkbox" name="who" id="w-kids" value="kids" checked><label for="w-kids">Small kids</label></span>
+          <span class="chip"><input type="checkbox" name="who" id="w-stroller" value="stroller"><label for="w-stroller">Stroller</label></span>
+          <span class="chip"><input type="checkbox" name="who" id="w-wheel" value="wheel"><label for="w-wheel">Wheelchair / limited walking</label></span>
+          <span class="chip"><input type="checkbox" name="who" id="w-bags" value="bags"><label for="w-bags">Lots of luggage</label></span>
+          <span class="chip"><input type="checkbox" name="who" id="w-budget" value="budget"><label for="w-budget">Tight budget</label></span>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Group size</legend>
+        <div class="chips">
+          <span class="chip"><input type="radio" name="size" id="s-small" value="small" checked><label for="s-small">1–3 people</label></span>
+          <span class="chip"><input type="radio" name="size" id="s-big" value="big"><label for="s-big">4 or more</label></span>
+        </div>
+      </fieldset>
+
+      <div class="result" id="result" aria-live="polite"></div>
+    </form>
+  </div>
+
+  <!-- GRAB -->
+  <section class="block" id="grab">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">The #1 confusing thing</p>
+        <h2>Finding your Grab at Terminal 1</h2>
+        <p class="muted">E-hailing cars (Grab, AirAsia Ride, inDrive) can't stop at the arrival hall. They wait one floor down, outside the doors on Level 1. Book <em>after</em> you're out with your bags, so the driver isn't waiting.</p>
+      </div>
+      <ol class="grab">
+        <li><div class="sign"><span class="lv">L3</span><span class="txt">Exit Arrival Hall<small>After baggage + customs</small></span></div><p>Collect bags and a free trolley. Use the toilets and baby room here first, it's quieter than downstairs.</p></li>
+        <li><div class="sign"><span class="lv">↓</span><span class="txt">Lift to Level 1<small>Follow "E-hailing" / "Kenderaan e-panggilan"</small></span></div><p>Lifts take trolleys and strollers. Escalators are fine if you only have backpacks.</p></li>
+        <li><div class="sign"><span class="lv">L1</span><span class="txt">Door 3 or Door 4<small>Designated e-hailing pickup</small></span></div><p>There's a covered waiting area with seats. Now open the app and book.</p></li>
+        <li><div class="sign"><span class="lv">✓</span><span class="txt">Check before you get in<small>Plate · car · driver name</small></span></div><p>Match all three with the app. Never get in a car that just pulls up and offers a ride.</p></li>
+      </ol>
+      <div class="pin">
+        <span>Pickup pin to choose in the app:</span>
+        <code id="pin-text">KLIA Terminal 1 – Level 1, Door 3/4</code>
+        <button type="button" class="btn ghost" id="copy-pin">Copy</button>
+        <span class="muted" id="copy-msg" role="status"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- MAP -->
+  <section class="block" id="map" style="padding-top:12px">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Terminal 1 map</p>
+        <h2>See the way before you walk it</h2>
+        <p class="muted">Pick where you need to go. The orange line shows the route from the Arrival Hall exit, including which lift to take.</p>
+      </div>
+      <div class="map-card">
+        <div class="map-picks" id="map-picks" role="group" aria-label="Show route to"></div>
+        <div class="map-scroll">
+          <svg id="map-svg" viewBox="0 0 760 420" role="img" aria-labelledby="map-title map-desc">
+            <title id="map-title">Simplified side view of KLIA Terminal 1</title>
+            <desc id="map-desc">Three floors: Level 5 departures, Level 3 arrival hall, Level 1 ground transport, joined by lifts in the middle.</desc>
+          </svg>
+        </div>
+        <ol class="steps" id="map-steps" aria-live="polite"></ol>
+        <div class="map-foot">
+          <span class="muted">Simplified side view, not to scale. Swipe sideways on a phone to see the whole map.</span>
+          <a class="btn ghost" href="https://www.google.com/maps/search/?api=1&amp;query=KLIA+Terminal+1+Main+Terminal+Building" target="_blank" rel="noopener" style="text-decoration:none">Open in Google Maps</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- OPTIONS -->
+  <section class="block" id="options" style="padding-top:12px">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Every official way out</p>
+        <h2>Compare your rides</h2>
+        <p class="muted">Prices are approximate, in Malaysian Ringgit (RM), and can change. Check the counter or app on the day.</p>
+      </div>
+      <div class="modes">
+        <article class="mode">
+          <div class="sign"><span class="lv">L1</span><span class="txt">KLIA Ekspres<small>Tickets at Arrival Hall L3, train station below</small></span></div>
+          <p>Non-stop train to KL Sentral. Fastest way to the city, no traffic jams.</p>
+          <dl class="facts">
+            <dt>Time</dt><dd>about 28 min to KL Sentral</dd>
+            <dt>Every</dt><dd>15–20 min, roughly 5am–1am</dd>
+            <dt>Fare</dt><dd>RM55 adult · RM25 child (2–12)</dd>
+            <dt>Pay</dt><dd>Card / Touch 'n Go tap at gate</dd>
+          </dl>
+          <div class="fam"><span class="tag good">Step-free with lifts</span><span class="tag good">Luggage racks</span><span class="tag mind">Pricey for big groups</span></div>
+        </article>
+        <article class="mode">
+          <div class="sign"><span class="lv">L1</span><span class="txt">KLIA Transit<small>Same station as KLIA Ekspres</small></span></div>
+          <p>Same line but stops at Salak Tinggi, Putrajaya &amp; Cyberjaya and Bandar Tasik Selatan. Also the easy hop to Terminal 2.</p>
+          <dl class="facts">
+            <dt>Time</dt><dd>about 3 min to T2 · 35–40 min to KL Sentral</dd>
+            <dt>Fare</dt><dd>T1 ↔ T2 about RM2</dd>
+            <dt>Pay</dt><dd>Card / Touch 'n Go</dd>
+          </dl>
+          <div class="fam"><span class="tag good">Best way to T2</span><span class="tag good">Step-free</span></div>
+        </article>
+        <article class="mode">
+          <div class="sign"><span class="lv">L1</span><span class="txt">Grab / e-hailing<small>Door 3 &amp; Door 4</small></span></div>
+          <p>Door-to-door. Price is fixed in the app before you ride. Choose a 6-seater (GrabCar 6 / Family) for strollers and big bags.</p>
+          <dl class="facts">
+            <dt>Time</dt><dd>50–70 min to KL city</dd>
+            <dt>Fare</dt><dd>roughly RM65–100 to KL city</dd>
+            <dt>Child seat</dt><dd>Not guaranteed, bring your own</dd>
+          </dl>
+          <div class="fam"><span class="tag good">Door to door</span><span class="tag good">Price shown first</span><span class="tag mind">Surge at peak hours</span></div>
+        </article>
+        <article class="mode">
+          <div class="sign"><span class="lv">L3</span><span class="txt">Airport Taxi (coupon)<small>Counters in Arrival Hall</small></span></div>
+          <p>Pay a fixed price at the counter first, then queue for the car. No meter, no haggling. Ask for a Family (MPV) taxi for 5–8 people.</p>
+          <dl class="facts">
+            <dt>Where</dt><dd>Domestic &amp; International arrival, L3</dd>
+            <dt>Fare</dt><dd>Fixed by zone, from about RM32</dd>
+            <dt>Types</dt><dd>Budget · Premier · Family</dd>
+          </dl>
+          <div class="fam"><span class="tag good">No app needed</span><span class="tag good">Big MPVs</span><span class="tag mind">Midnight surcharge</span></div>
+        </article>
+        <article class="mode">
+          <div class="sign"><span class="lv">L1</span><span class="txt">Airport bus<small>Bus station, Main Terminal</small></span></div>
+          <p>Cheapest option. Coaches to KL Sentral and other towns. Shuttle buses to Terminal 2 also leave from here.</p>
+          <dl class="facts">
+            <dt>Time</dt><dd>about 60 min to KL Sentral</dd>
+            <dt>Fare</dt><dd>around RM15 one way</dd>
+            <dt>Every</dt><dd>about 30 min</dd>
+          </dl>
+          <div class="fam"><span class="tag good">Budget friendly</span><span class="tag mind">Steps onto bus</span><span class="tag mind">Slower in traffic</span></div>
+        </article>
+        <article class="mode">
+          <div class="sign"><span class="lv">L1</span><span class="txt">Meter taxi / car rental<small>Taxi rank L1 · rental counters L3</small></span></div>
+          <p>Meter taxis queue outside on Level 1. Car rental counters are in the arrival hall, with cars in the multi-storey car park.</p>
+          <dl class="facts">
+            <dt>Taxi</dt><dd>Insist the meter is on</dd>
+            <dt>Rental</dt><dd>Book ahead in school holidays</dd>
+          </dl>
+          <div class="fam"><span class="tag good">Rental: own child seat</span><span class="tag mind">Agree on meter first</span></div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAMILY -->
+  <section class="block" id="family" style="padding-top:12px">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Family &amp; accessibility</p>
+        <h2>Moving with kids, prams and wheelchairs</h2>
+      </div>
+      <div class="two">
+        <div class="panel">
+          <h3>For parents</h3>
+          <ul class="list">
+            <li><b>Baby care rooms</b><span>In the Main Terminal Building, the Contact Piers and the Satellite Building. Changing tables and a private space to feed.</span></li>
+            <li><b>Free trolleys</b><span>Found at baggage claim. Small kids can't ride in them, so keep one adult on the trolley and one on the kids.</span></li>
+            <li><b>Use lifts, not escalators</b><span>Strollers and trolleys are not allowed on escalators. Lifts are next to every escalator bank.</span></li>
+            <li><b>Agree a meeting point</b><span>Pick one big sign (for example "Door 4, Level 1") and tell kids to go there and ask staff in uniform if they get lost.</span></li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h3>For wheelchair users &amp; older travellers</h3>
+          <ul class="list">
+            <li><b>Ask your airline first</b><span>Request wheelchair help when booking. Staff can push you from the plane through to your ride.</span></li>
+            <li><b>Special assistance counter</b><span>When departing, go to check-in counter Z16 for help. Airport wheelchairs are also kept at the gates.</span></li>
+            <li><b>Aerotrain to the Satellite</b><span>The shuttle train between the Main Terminal and the Satellite gates is level boarding, no steps.</span></li>
+            <li><b>Step-free ride picks</b><span>KLIA Ekspres and Grab (choose a larger car) are the easiest. Buses usually have steps.</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SAFETY -->
+  <section class="block" id="safety" style="padding-top:12px">
+    <div class="wrap">
+      <div class="safety">
+        <div class="section-head" style="margin:0">
+          <p class="eyebrow">Stay safe</p>
+          <h2>Five rules that keep your trip trouble-free</h2>
+        </div>
+        <div class="rules">
+          <div class="rule"><h3>Say no to "Taxi? Taxi?"</h3><p>People who walk up to you inside the hall are touts (locals call them <em>ulat teksi</em>). Only use counters, the app, or the official rank.</p></div>
+          <div class="rule"><h3>Match the plate</h3><p>Check plate number, car model and driver name in the app before opening the door.</p></div>
+          <div class="rule"><h3>Pay at the counter</h3><p>For coupon taxis, pay inside at the counter. Never hand cash to someone outside.</p></div>
+          <div class="rule"><h3>Share your trip</h3><p>Use "Share my ride" in Grab so family can follow the car live.</p></div>
+          <div class="rule"><h3>Kids sit in the back</h3><p>Children ride in the back seat. Bring a travel booster if you can, cars rarely have one.</p></div>
+        </div>
+        <div class="sos" aria-label="Emergency numbers">
+          <div>Police / Ambulance<strong>999</strong></div>
+          <div>From a mobile<strong>112</strong></div>
+          <div>Airport help<span style="display:block; color:#e8e4fb">Information counters, Arrival Hall L3</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DRIVER CARD + CHECKLIST -->
+  <section class="block" id="driver" style="padding-top:12px">
+    <div class="wrap two">
+      <div class="driver">
+        <p class="eyebrow">Show this to your driver</p>
+        <h3>Don't speak Malay? Show the screen.</h3>
+        <label for="addr">Where are you going?</label>
+        <input id="addr" type="text" value="KL Sentral Station" autocomplete="off">
+        <label for="phrase">What do you need?</label>
+        <select id="phrase">
+          <option value="go">Please take me here</option>
+          <option value="meter">Please turn on the meter</option>
+          <option value="slow">Please drive slowly, I have children</option>
+          <option value="boot">Please help with the luggage and stroller</option>
+          <option value="stop">Please stop here</option>
+        </select>
+        <div class="show" id="show" aria-live="polite"></div>
+      </div>
+      <div class="panel">
+        <p class="eyebrow">Before you leave the hall</p>
+        <h3>Family ready-check</h3>
+        <div class="progress" aria-hidden="true"><i id="bar"></i></div>
+        <p class="muted" id="count">0 of 6 done</p>
+        <ul class="check" id="checklist">
+          <li><label><input type="checkbox" id="c1"> Everyone has been to the toilet</label></li>
+          <li><label><input type="checkbox" id="c2"> All bags counted (incl. stroller and car seat)</label></li>
+          <li><label><input type="checkbox" id="c3"> Phone has data or airport Wi-Fi</label></li>
+          <li><label><input type="checkbox" id="c4"> Kids know the meeting point</label></li>
+          <li><label><input type="checkbox" id="c5"> Some Ringgit cash or a card that taps</label></li>
+          <li><label><input type="checkbox" id="c6"> Destination address saved in English</label></li>
+        </ul>
+        <button type="button" class="btn ghost" id="reset" style="justify-self:start">Clear checklist</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap" style="display:grid; gap:6px">
+    <p><strong>KLIA Easy Move</strong>, Team 04 · Travel With Confidence. Safe, clear and family-friendly movement around KLIA Terminal 1.</p>
+    <p>Information gathered from <a href="https://www.malaysiaairports.com.my/en/klia1" target="_blank" rel="noopener">Malaysia Airports (KLIA Terminal 1)</a> and public transport guides. Fares, doors and timings can change, so always follow the airport signs on the day.</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  // ---------- Route finder ----------
+  var form = document.getElementById('finder');
+  var out = document.getElementById('result');
+
+  var R = {
+    ekspres: { map: 'train', name: 'KLIA Ekspres train', where: 'L1 · ERL station', steps: ['Buy tickets at the KLIA Ekspres counter in the Arrival Hall (L3), or tap your card at the gate.', 'Take the lift down to the station on Level 1.', 'Non-stop to KL Sentral in about 28 min. A taxi rank and Grab pickup wait there.'] },
+    transitT2: { map: 'train', name: 'KLIA Transit train', where: 'L1 · ERL station', steps: ['Follow "KLIA Ekspres / KLIA Transit" signs from the Arrival Hall (L3).', 'Lift down to the station on Level 1 and board any train towards KL Sentral.', 'Get off at the first stop, Terminal 2. It takes about 3 minutes.'] },
+    transitPut: { map: 'train', name: 'KLIA Transit train', where: 'L1 · ERL station', steps: ['Follow "KLIA Transit" signs from the Arrival Hall (L3) to the station on Level 1.', 'Ride to Putrajaya & Cyberjaya station (about 20 min).', 'Book a short Grab from the station to your address.'] },
+    grab: { map: 'grab', name: 'Grab / e-hailing', where: 'L1 · Door 3 / 4', steps: ['Take the lift from the Arrival Hall (L3) down to Level 1.', 'Walk to Door 3 or Door 4 and sit in the waiting area.', 'Book now. Match plate, car and driver name before getting in.'] },
+    grab6: { map: 'grab', name: 'Grab 6-seater', where: 'L1 · Door 3 / 4', steps: ['Take the lift from the Arrival Hall (L3) down to Level 1.', 'Walk to Door 3 or Door 4.', 'Book "GrabCar 6" or a family car so the stroller and bags fit. Match the plate first.'] },
+    coupon: { map: 'coupon', name: 'Airport coupon taxi (Family)', where: 'L3 · Taxi counter', steps: ['Go to the Airport Taxi counter in the Arrival Hall (L3).', 'Say your destination, pay the fixed fare, and ask for a Family (MPV) taxi.', 'Show your coupon at the taxi queue. No meter, no haggling.'] },
+    bus: { map: 'bus', name: 'Airport coach', where: 'L1 · Bus station', steps: ['Take the lift from the Arrival Hall (L3) down to Level 1.', 'Follow "Bus" signs to the bus station and buy a ticket at the counter.', 'About 60 min to KL Sentral for around RM15.'] }
+  };
+
+  function pick(dest, who, size) {
+    var has = function (k) { return who.indexOf(k) > -1; };
+    var big = size === 'big';
+    var heavy = has('stroller') || has('bags') || has('wheel');
+    var list = [];
+
+    if (dest === 't2') {
+      list.push([R.transitT2, 'Fastest and cheapest. Step-free with lifts, and it takes 3 minutes.']);
+      list.push([R.bus, 'Free-flowing shuttle buses also run between terminals.']);
+    } else if (dest === 'putrajaya') {
+      if (heavy || big) list.push([big ? R.grab6 : R.grab, 'Door to door, so nobody carries bags between stations.']);
+      list.push([R.transitPut, 'Avoids traffic and costs less for 1 to 2 people.']);
+      if (!(heavy || big)) list.push([R.grab, 'Door to door if you would rather not change.']);
+    } else if (dest === 'hotel') {
+      if (big) list.push([R.coupon, 'Fixed price, roomy MPV, no app needed for a big family.']);
+      list.push([big || has('stroller') ? R.grab6 : R.grab, 'Door to your hotel, and the price is shown before you book.']);
+      if (!big) list.push([R.coupon, 'Fixed price if you have no data or no app.']);
+      if (has('budget') && !heavy) list.push([R.bus, 'Cheapest, but you finish with a taxi from the bus stop.']);
+    } else {
+      // KL city
+      if (big) {
+        list.push([R.grab6, '4+ people: one car usually costs less than 4+ train tickets.']);
+        list.push([R.coupon, 'Fixed fare and a big MPV if you prefer a counter.']);
+      } else if (has('budget') && !heavy) {
+        list.push([R.bus, 'Lowest fare for light travellers.']);
+        list.push([R.ekspres, 'Twice as fast if the budget stretches.']);
+      } else {
+        list.push([R.ekspres, 'No traffic, lifts all the way, room for luggage. Kids under 2 ride free.']);
+        list.push([heavy ? R.grab6 : R.grab, 'Door to door if your hotel is far from KL Sentral.']);
+      }
+    }
+    return list.slice(0, 2);
+  }
+
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); }
+
+  function render() {
+    var dest = form.querySelector('input[name="dest"]:checked').value;
+    var size = form.querySelector('input[name="size"]:checked').value;
+    var who = Array.prototype.map.call(form.querySelectorAll('input[name="who"]:checked'), function (i) { return i.value; });
+    var picks = pick(dest, who, size);
+    var html = picks.map(function (p, i) {
+      var r = p[0];
+      var parts = r.where.split(' · ');
+      return '<div class="pick">' +
+        '<div class="pick-head"><h3>' + esc(r.name) + '</h3><span class="pill' + (i ? ' alt' : '') + '">' + (i ? 'Also good' : 'Best for you') + '</span></div>' +
+        '<div class="sign"><span class="lv">' + esc(parts[0]) + '</span><span class="txt">' + esc(parts[1]) + '</span></div>' +
+        (i ? '' : '<ol class="steps">' + r.steps.map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('') + '</ol>') +
+        '<p class="why">' + esc(p[1]) + '</p>' +
+        '<button type="button" class="linkish" data-map="' + r.map + '">Show on map</button></div>';
+    }).join('');
+    if (who.indexOf('wheel') > -1) html += '<p class="why"><strong>Wheelchair tip:</strong> lifts are beside every escalator. Ask your airline for a staff escort to the pickup point.</p>';
+    if (who.indexOf('kids') > -1 || who.indexOf('stroller') > -1) html += '<p class="why"><strong>Kids tip:</strong> stop at the baby care room in the Arrival Hall before heading down.</p>';
+    out.innerHTML = html;
+  }
+  form.addEventListener('change', render);
+  out.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-map]');
+    if (!b) return;
+    showRoute(b.getAttribute('data-map'));
+    document.getElementById('map').scrollIntoView();
+  });
+  form.addEventListener('submit', function (e) { e.preventDefault(); });
+  render();
+
+  // ---------- Terminal map ----------
+  // Side view: L5 y 20-110, L3 y 150-260, L1 y 300-410. Lifts at x=390. Arrival exit at (250, 225).
+  var svg = document.getElementById('map-svg');
+  var NS = 'http://www.w3.org/2000/svg';
+  function el(tag, attrs, text) {
+    var n = document.createElementNS(NS, tag);
+    for (var k in attrs) n.setAttribute(k, attrs[k]);
+    if (text) n.textContent = text;
+    return n;
+  }
+  var FLOORS = [
+    { y: 20, lv: 'L5', name: 'Departure Hall', sub: 'Check-in' },
+    { y: 150, lv: 'L3', name: 'Arrival Hall', sub: 'After customs' },
+    { y: 300, lv: 'L1', name: 'Ground transport', sub: 'Cars, buses, trains' }
+  ];
+  var LIFT = 390, FLOOR_Y = { L5: 80, L3: 225, L1: 375 }, HERE = [250, 225];
+  var PLACES = {
+    assist:  { lv: 'L5', x: 580, label: 'Counter Z16 · Special assistance', btn: 'Special assistance', steps: ['From the Arrival Hall take the lift up to Level 5 (Departures).', 'Walk to check-in row Z, counter Z16.', 'Staff arrange wheelchairs and escorts. You can also ask your airline.'] },
+    baby:    { lv: 'L3', x: 110, label: 'Baby care room', btn: 'Baby care room', steps: ['Baby care room is in the Arrival Hall on Level 3. Follow the baby room symbol.', 'Change and feed before heading down. It is calmer here than at the pickup.'] },
+    coupon:  { lv: 'L3', x: 490, label: 'Taxi coupons', btn: 'Coupon taxi', steps: ['Stay on Level 3. The Airport Taxi counter is in the Arrival Hall.', 'Pay the fixed fare and ask for a Family (MPV) taxi if you need space.', 'Staff point you to the taxi queue with your coupon.'] },
+    info:    { lv: 'L3', x: 600, label: 'Information', btn: 'Information desk', steps: ['Stay on Level 3. The information counter is in the Arrival Hall.', 'Ask here for lost kids, lost items, wheelchairs or directions.'] },
+    rent:    { lv: 'L3', x: 700, label: 'Car rental', btn: 'Car rental', steps: ['Car rental counters are in the Arrival Hall on Level 3.', 'After paperwork, staff walk you to the car park. Ask for a child seat when booking.'] },
+    bus:     { lv: 'L1', x: 110, label: 'Bus station', btn: 'Bus', steps: ['Take the lift from the Arrival Hall (L3) down to Level 1.', 'Turn left and follow the "Bus" signs to the bus station.', 'Buy a ticket at the counter and check the bay number.'] },
+    meter:   { lv: 'L1', x: 250, label: 'Meter taxi', btn: 'Meter taxi', steps: ['Take the lift down to Level 1.', 'Turn left to the meter taxi rank.', 'Ask the driver to switch the meter on before you set off.'] },
+    grab:    { lv: 'L1', x: 505, label: 'Grab · Door 3/4', btn: 'Grab pickup', steps: ['Take the lift from the Arrival Hall (L3) down to Level 1.', 'Turn right and walk to Door 3 or Door 4.', 'Wait in the seating area, then book. Check the plate before you get in.'] },
+    train:   { lv: 'L1', x: 668, label: 'KLIA Ekspres / Transit', btn: 'Train', steps: ['Get a ticket at the KLIA Ekspres counter on Level 3, or tap your card at the gate.', 'Take the lift down to Level 1.', 'Turn right to the train station. Platforms are step-free.'] }
+  };
+  var ORDER = ['grab', 'train', 'bus', 'coupon', 'meter', 'baby', 'info', 'assist', 'rent'];
+
+  // floors
+  FLOORS.forEach(function (f) {
+    svg.appendChild(el('rect', { x: 10, y: f.y, width: 740, height: 110, rx: 12, 'class': 'm-floor' }));
+    svg.appendChild(el('rect', { x: 22, y: f.y + 10, width: 34, height: 26, rx: 5, 'class': 'm-tag' }));
+    svg.appendChild(el('text', { x: 39, y: f.y + 28, 'text-anchor': 'middle', 'class': 'm-tag-t' }, f.lv));
+    svg.appendChild(el('text', { x: 64, y: f.y + 23, 'class': 'm-lbl' }, f.name));
+    svg.appendChild(el('text', { x: 64, y: f.y + 38, 'class': 'm-tag-s' }, f.sub));
+  });
+  // lift shaft
+  svg.appendChild(el('rect', { x: LIFT - 16, y: 40, width: 32, height: 355, rx: 8, 'class': 'm-lift' }));
+  svg.appendChild(el('text', { x: LIFT, y: 145, 'text-anchor': 'middle', 'class': 'm-lift-t' }, 'LIFT'));
+  svg.appendChild(el('text', { x: LIFT, y: 295, 'text-anchor': 'middle', 'class': 'm-lift-t' }, 'LIFT'));
+  // route layer under markers
+  var route = el('path', { 'class': 'm-route', d: '' });
+  svg.appendChild(route);
+  // you are here
+  svg.appendChild(el('circle', { cx: HERE[0], cy: HERE[1], r: 9, 'class': 'm-here' }));
+  svg.appendChild(el('text', { x: HERE[0], y: HERE[1] - 16, 'text-anchor': 'middle', 'class': 'm-here-t' }, 'You are here'));
+  // places
+  var dots = {};
+  Object.keys(PLACES).forEach(function (k) {
+    var p = PLACES[k], y = FLOOR_Y[p.lv];
+    var g = el('g', { 'class': 'm-pt' });
+    g.appendChild(el('circle', { cx: p.x, cy: y, r: 8, 'class': 'm-dot' }));
+    g.appendChild(el('text', { x: p.x, y: y + 24, 'text-anchor': 'middle', 'class': 'm-lbl' }, p.label));
+    svg.appendChild(g);
+    dots[k] = g;
+  });
+
+  var picks = document.getElementById('map-picks');
+  var stepsEl = document.getElementById('map-steps');
+  ORDER.forEach(function (k) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.textContent = PLACES[k].btn; b.setAttribute('data-place', k); b.setAttribute('aria-pressed', 'false');
+    b.addEventListener('click', function () { showRoute(k); });
+    picks.appendChild(b);
+  });
+
+  function showRoute(k) {
+    var p = PLACES[k], ty = FLOOR_Y[p.lv], d;
+    if (p.lv === 'L3') d = 'M' + HERE[0] + ' ' + HERE[1] + ' H' + p.x;
+    else d = 'M' + HERE[0] + ' ' + HERE[1] + ' H' + LIFT + ' V' + ty + ' H' + p.x;
+    route.setAttribute('d', d);
+    Object.keys(dots).forEach(function (j) { dots[j].setAttribute('class', 'm-pt' + (j === k ? ' on' : '')); });
+    Array.prototype.forEach.call(picks.children, function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-place') === k)); });
+    stepsEl.innerHTML = p.steps.map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('');
+  }
+  showRoute('grab');
+
+  // ---------- Copy pickup pin ----------
+  var msg = document.getElementById('copy-msg');
+  document.getElementById('copy-pin').addEventListener('click', function () {
+    var text = document.getElementById('pin-text').textContent;
+    function fallback() {
+      var r = document.createRange(); r.selectNodeContents(document.getElementById('pin-text'));
+      var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+      msg.textContent = 'Selected. Press copy on your device.';
+    }
+    try {
+      navigator.clipboard.writeText(text).then(function () { msg.textContent = 'Copied'; }, fallback);
+    } catch (e) { fallback(); }
+  });
+
+  // ---------- Driver card ----------
+  var phrases = {
+    go: ['Tolong hantar saya ke:', 'Please take me to:'],
+    meter: ['Tolong guna meter.', 'Please use the meter.'],
+    slow: ['Tolong pandu perlahan, saya ada anak kecil.', 'Please drive slowly, I have small children.'],
+    boot: ['Tolong bantu angkat beg dan kereta sorong bayi.', 'Please help lift the bags and the stroller.'],
+    stop: ['Tolong berhenti di sini.', 'Please stop here.']
+  };
+  var addr = document.getElementById('addr');
+  var sel = document.getElementById('phrase');
+  var show = document.getElementById('show');
+  function drawCard() {
+    var p = phrases[sel.value];
+    var a = sel.value === 'go' ? '<br>' + esc(addr.value || '…') : '';
+    show.innerHTML = esc(p[0]) + a + '<small>' + esc(p[1]) + '</small>';
+  }
+  addr.addEventListener('input', drawCard);
+  sel.addEventListener('change', drawCard);
+  drawCard();
+
+  // ---------- Checklist (remembered on this device only) ----------
+  var boxes = document.querySelectorAll('#checklist input');
+  var bar = document.getElementById('bar');
+  var count = document.getElementById('count');
+  var KEY = 'klia-easy-move-check';
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) {}
+  function update() {
+    var done = 0, state = {};
+    boxes.forEach(function (b) { state[b.id] = b.checked; if (b.checked) done++; });
+    bar.style.width = (done / boxes.length * 100) + '%';
+    count.textContent = done === boxes.length ? 'All set. Have a safe trip!' : done + ' of ' + boxes.length + ' done';
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  }
+  boxes.forEach(function (b) { b.checked = !!saved[b.id]; b.addEventListener('change', update); });
+  document.getElementById('reset').addEventListener('click', function () { boxes.forEach(function (b) { b.checked = false; }); update(); });
+  update();
+})();
+</script>
+</body>
+</html>
